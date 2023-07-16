@@ -1,91 +1,34 @@
-import express, {Request, Response, NextFunction, Application, ErrorRequestHandler} from "express";
-import {Server} from 'http'
-import createHttpError from "http-errors";
-import {config} from 'dotenv'
-import bodyParser from 'body-parser';
-config()
+import express, { type Request, type Response, type NextFunction, type Application, type ErrorRequestHandler } from "express";
 
+import createHttpError from "http-errors";
+import settings from './config'
+import bodyParser from 'body-parser';
+import swaggerUi from 'swagger-ui-express';
+
+import swaggerSpec from './swagger/swaggerSpec'
 
 const app: Application = express();
 app.use(bodyParser.json());
-const PORT: Number = Number(process.env.PORT) || 3000
 
-app.get('/', (req: Request, res:Response, next: NextFunction) => {
 
-   const serverStatus = {
-    environment: process.env.NODE_ENV || 'development',
-    port: PORT,
-    running: true,
-    currentTime: new Date().toISOString(),
-    buildNumber: process.env.CI_PIPELINE_IID || 'unknown',
-  };
-const endpoints: { path: string; methods: string[]; requestBody?: any }[] = [];
+app.get('/users', (req, res) => {
+  res.send('wee')
+});
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-  // Iterate over the router's stack
-  app._router.stack.forEach((middleware: any) => {
-    if (middleware.route) {
-      // Extract path and HTTP methods from each route
-      const { path } = middleware.route;
-      const methods = Object.keys(middleware.route.methods);
-
-      // Check if the route is a POST endpoint
-      const isPostEndpoint = methods.includes('post');
-
-      // Extract request body parameters for POST endpoints
-      let requestBody;
-      if (isPostEndpoint) {
-        const { stack } = middleware.route;
-        stack.forEach((layer: any) => {
-          if (layer.handle && layer.handle.name === 'jsonParser') {
-            requestBody = Object.keys(layer.handle.bodySchema.properties);
-          }
-        });
-      }
-
-      // Add endpoint information to the endpoints array
-      endpoints.push({ path, methods, requestBody });
-    }
-  });
-
-  // Return the list of endpoints
-  res.json(endpoints);
+app.use((req: Request, res: Response, next: NextFunction) => {
+  next(new createHttpError.NotFound())
 })
 
-app.post('/users', (req: Request, res: Response) => {
-  // Endpoint for creating a new user
-  const { name, email } = req.body;
-  res.json({ message: `Create new user with name: ${name}, email: ${email}` });
-});
-
-// Define your API routes
-app.get('/users', (req: Request, res: Response) => {
-  // Endpoint for retrieving users
-  res.json({ message: 'Get all users' });
-});
-
-app.get('/users/:id', (req: Request, res: Response) => {
-  // Endpoint for retrieving a specific user
-  const userId = req.params.id;
-  res.json({ message: `Get user with ID ${userId}` });
-});
-
-
-app.use((req: Request, res:Response, next: NextFunction) => {
-    next(new createHttpError.NotFound())
-})
-
-const errorHandler:ErrorRequestHandler = (err, req, res, next) => {
-
-    res.status(err.status || 500)
-    res.send({
-        status: err.status || 500,
-        message: err.message
-    })
+const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
+  res.status(err.status || 500)
+  res.send({
+    status: err.status || 500,
+    message: err.message
+  })
 
 }
 
-
-
 app.use(errorHandler)
 
-const server: Server = app.listen(PORT, () => console.log(`running on port ${PORT}`))
+app.listen(settings.PORT, () => console.log(`running on port ${settings.PORT}`))
